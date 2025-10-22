@@ -1,0 +1,65 @@
+name: Deploy Streamlit App to EC2
+
+on:
+  push:
+    branches:
+      - main # Roda apenas em pushes para a 'main'
+
+jobs:
+  build-and-push:
+    name: Build e Push para Docker Hub
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build e Push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # IMPORTANTE: Mude 'seu-usuario' para seu user do Docker Hub
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest 
+
+  deploy-to-ec2:
+    name: Deploy no EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push # Depende do job anterior
+
+    steps:
+      - name: Executar comandos no EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_PUBLIC_IP }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+
+          # Script que será rodado DENTRO do EC2
+          script: |
+            # Faz login no Docker Hub DENTRO do EC2
+            docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # Para e remove o container antigo (ignora erro se não existir)
+            docker stop olist-app || true
+            docker rm olist-app || true
+
+            # Baixa a imagem mais recente
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest
+
+            # Roda o novo container
+            # O --name 'olist-app' facilita parar/remover
+            # O -d roda em background (detached)
+            # As flags -e passam os secrets do Kaggle para o app
+            docker run -d --name olist-app -p 8501:8501 \
+              -e KAGGLE_USERNAME=${{ secrets.KAGGLE_USERNAME }} \
+              -e KAGGLE_KEY=${{ secrets.KAGGLE_KEY }} \
+              ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest
