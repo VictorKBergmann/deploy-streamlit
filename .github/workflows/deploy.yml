@@ -26,8 +26,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          # IMPORTANTE: Mude 'seu-usuario' para seu user do Docker Hub
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest 
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/deploy-streamlit:latest 
 
   deploy-to-ec2:
     name: Deploy no EC2
@@ -49,17 +48,17 @@ jobs:
             docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
 
             # Para e remove o container antigo (ignora erro se não existir)
-            docker stop olist-app || true
-            docker rm olist-app || true
+            docker stop deploy-streamlit || true
+            docker rm deploy-streamlit || true
 
             # Baixa a imagem mais recente
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/deploy-streamlit:latest
 
             # Roda o novo container
-            # O --name 'olist-app' facilita parar/remover
+            # O --name 'deploy-streamlit' facilita parar/remover
             # O -d roda em background (detached)
             # As flags -e passam os secrets do Kaggle para o app
-            docker run -d --name olist-app -p 8501:8501 \
+            docker run -d --name deploy-streamlit -p 8501:8501 \
               -e KAGGLE_USERNAME=${{ secrets.KAGGLE_USERNAME }} \
               -e KAGGLE_KEY=${{ secrets.KAGGLE_KEY }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/olist-app:latest
+              ${{ secrets.DOCKERHUB_USERNAME }}/deploy-streamlit:latest
