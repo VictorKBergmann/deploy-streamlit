@@ -1,4 +1,11 @@
 .env
 venv
 data/
-.pem
+
+*.pem
+*.Identifier
+
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+infra/.terraform.lock.hcl
